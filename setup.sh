@@ -7,3 +7,4 @@ config = { _id: "m101", members:[
 rs.initiate(config);
 
 rs.status();
+EOF
