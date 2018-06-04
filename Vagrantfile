@@ -5,25 +5,33 @@
 VAGRANTFILE_API_VERSION = "2"
 
 $mongoInitScript = <<-"SCRIPT"
-  YUM_REPO_CONFIG_PATH="/etc/yum.repos.d/mongodb.repo"
+  YUM_REPO_CONFIG_PATH="/etc/yum.repos.d/mongodb-org-3.6.repo"
 
   tee $YUM_REPO_CONFIG_PATH <<-"EOF"
-[mongodb]
+[mongodb-org-3.6]
 name=MongoDB Repository
-baseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64/
-gpgcheck=0
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.6/x86_64/
+gpgcheck=1
 enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-3.6.asc
 EOF
 
-  yum -y install mongo-10gen mongo-10gen-server
+  yum -y install openssl openssl-devel mongodb-org
+
+  mkdir /etc/mongo
+  cp /vagrant/keyfile /etc/mongo/ && chmod 400 /etc/mongo/keyfile
 
   MONGOD_CONF_FILE="/etc/mongod.conf"
 
   tee -a $MONGOD_CONF_FILE <<-"EOF"
-smallfiles = true
-oplogSize = 64
-replSet = bogus-replica-set
+security:
+  keyFile: /etc/mongo/keyfile
+replication:
+  oplogSizeMB: 64
+  replSetName: bogus-replica-set
 EOF
+
+  chown -R mongod:mongod /etc/mongo*
 
   iptables -I INPUT -p tcp -m state --state NEW -m tcp --dport 27017 -j ACCEPT
   iptables-save > /etc/sysconfig/iptables
@@ -38,11 +46,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # please see the online documentation at vagrantup.com.
 
   # Every Vagrant virtual environment requires a box to build off of.
-  config.vm.box = "centos64"
-
-  # The url from where the 'config.vm.box' box will be fetched if it
-  # doesn't already exist on the user's system.
-  config.vm.box_url = "http://developer.nrel.gov/downloads/vagrant-boxes/CentOS-6.4-x86_64-v20130427.box"
+  config.vm.box = "centos64-x86_64-20171214"
 
   config.vm.provider "virtualbox" do |v|
     v.customize ["modifyvm", :id, "--cpus", "2"]
