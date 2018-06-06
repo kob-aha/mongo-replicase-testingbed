@@ -29,6 +29,8 @@ security:
 replication:
   oplogSizeMB: 64
   replSetName: bogus-replica-set
+net:
+  bindIpAll: true
 EOF
 
   chown -R mongod:mongod /etc/mongo*
