@@ -4,6 +4,14 @@
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
+$ipTablesScript = <<-"IPTABSCRIPT"
+  REPLICA_MEMBERS="$1"
+  iptables -t filter -A INPUT -s 127.0.0.1,${REPLICA_MEMBERS} -p tcp -m state --state NEW -m tcp --dport 27017 -j ACCEPT
+  iptables -t filter -I OUTPUT -d 127.0.0.1,${REPLICA_MEMBERS} -p tcp -m state --state NEW -m tcp --dport 27017 -j ACCEPT
+  iptables-save > /etc/sysconfig/iptables
+  service iptables restart
+IPTABSCRIPT
+
 $mongoInitScript = <<-"SCRIPT"
   YUM_REPO_CONFIG_PATH="/etc/yum.repos.d/mongodb-org-3.6.repo"
 
@@ -34,11 +42,6 @@ net:
 EOF
 
   chown -R mongod:mongod /etc/mongo*
-
-  iptables -I INPUT -p tcp -m state --state NEW -m tcp --dport 27017 -j ACCEPT
-  iptables-save > /etc/sysconfig/iptables
-  service iptables restart 
-
   service mongod start
 SCRIPT
 
@@ -57,16 +60,19 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.define :mongo1 do |mongo1|
     mongo1.vm.network :private_network, ip: "192.168.42.100"
     mongo1.vm.provision "shell", inline: $mongoInitScript
+    mongo1.vm.provision "shell", inline: $ipTablesScript, args: ["192.168.42.110,192.168.42.120"]
   end
 
   config.vm.define :mongo2 do |mongo2|
     mongo2.vm.network :private_network, ip: "192.168.42.110"
     mongo2.vm.provision "shell", inline: $mongoInitScript
+    mongo2.vm.provision "shell", inline: $ipTablesScript, args: ["192.168.42.100,192.168.42.120"]
   end
 
   config.vm.define :mongo3 do |mongo3|
     mongo3.vm.network :private_network, ip: "192.168.42.120"
     mongo3.vm.provision "shell", inline: $mongoInitScript
+    mongo3.vm.provision "shell", inline: $ipTablesScript, args: ["192.168.42.100,192.168.42.110"]
   end
 
 end
