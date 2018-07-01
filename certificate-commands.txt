@@ -1,0 +1,60 @@
+openssl genrsa -out mongoPrivate.key -aes256
+
+openssl req -x509 -new -extensions v3_ca -key mongoPrivate.key -days 1000 -out mongo-CA-cert.crt
+
+openssl req -new -nodes -newkey rsa:2048 -keyout keys/mongo1.key -out keys/mongo1.csr
+
+Values:
+=======
+
+Country Name (2 letter code) [XX]:IL
+State or Province Name (full name) []:TelAviv
+Locality Name (eg, city) [Default City]:TelAviv
+Organization Name (eg, company) [Default Company Ltd]:CyberArk
+Organizational Unit Name (eg, section) []:R&D
+Common Name (eg, your name or your server's hostname) []:192.168.42.100
+Email Address []:koby.aharon@cyberark.com
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+
+openssl x509 -CA mongo-CA-cert.crt -CAkey mongoPrivate.key -CAcreateserial -req -days 1000 -in keys/mongo1.csr -out certs/mongo1.crt
+
+cat keys/mongo1.key certs/mongo1.crt > pems/mongo1.pem
+
+mongod --sslMode preferSSL --sslPEMKeyFile /vagrant/pems/mongo1.pem --sslCAFile /vagrant/mongo-CA-cert.crt --sslClusterFile /vagrant/pems/mongo1.pem --clusterAuthMode x509 -f /etc/mongod.conf --fork
+
+mongod --sslMode preferSSL --sslPEMKeyFile /vagrant/pems/mongo2.pem --sslCAFile /vagrant/mongo-CA-cert.crt --sslClusterFile /vagrant/pems/mongo2.pem --clusterAuthMode x509 -f /etc/mongod.conf --fork
+
+mongod --sslMode preferSSL --sslPEMKeyFile /vagrant/pems/mongo3.pem --sslCAFile /vagrant/mongo-CA-cert.crt --sslClusterFile /vagrant/pems/mongo3.pem --clusterAuthMode x509 -f /etc/mongod.conf --fork
+
+Users Certificates:
+===================
+
+openssl req -new -nodes -newkey rsa:2048 -keyout keys/rootuser.key -out keys/rootuser.csr
+
+Values:
+-------
+
+Country Name (2 letter code) [XX]:IL
+State or Province Name (full name) []:TelAviv
+Locality Name (eg, city) [Default City]:TelAviv
+Organization Name (eg, company) [Default Company Ltd]:CyberArk
+Organizational Unit Name (eg, section) []:R&D-Users
+Common Name (eg, your name or your server's hostname) []:root
+Email Address []:koby.aharon@cyberark.com
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+
+openssl x509 -CA mongo-CA-cert.crt -CAkey mongoPrivate.key -CAcreateserial -req -days 1000 -in keys/rootuser.csr -out certs/rootuser.crt
+
+cat keys/rootuser.key certs/rootuser.crt > pems/rootuser.pem
+
+openssl x509 -in pems/rootuser.pem -inform PEM -subject -nameopt RFC2253
+
+mongo --ssl --sslPEMKeyFile /vagrant/pems/rootuser.pem --sslCAFile /vagrant/mongo-CA-cert.crt --host 192.168.42.100 admin
